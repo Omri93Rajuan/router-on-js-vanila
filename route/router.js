@@ -1,52 +1,36 @@
 export default class Router {
-  routes = {};
-
   constructor(routes) {
     this.routes = routes;
-    this.bindRoutes();
-    window.addEventListener('popstate', this.loadRoute.bind(this));
+
+    // הוספת מאזין אירועים ל-popstate (שינוי בהיסטוריה של הדפדפן)
+    // ומקשרו ל-renderRoute.
+    window.addEventListener('popstate', this.renderRoute.bind(this));
   }
 
-  bindRoutes() {
-    const routeKeys = Object.keys(this.routes);
-    routeKeys.forEach(route => {
-      const regexp = new RegExp(`^${route.replace(/\//g, '\\/').replace(/:\w+/g, '(.+)')}$`);
-      this.routes[route] = { ...this.routes[route], regexp };
-    });
-  }
+  renderRoute() {
+    // אחזור נתיב ה-URL הנוכחי מ-location.hash, תוך הסרת '#' מוביל.
+    const path = location.hash.slice(1) || '/';
 
-  getRoute() {
-    const [url, queryParams] = location.hash.split('?');
-    const path = url.slice(1) || '/';
-    const foundRoute = Object.entries(this.routes).find(([route, { regexp }]) => {
-      const match = path.match(regexp);
-      if (match) {
-        match.slice(1).forEach((param, idx) => {
-          this.routes[route].params = { ...this.routes[route].params, [route.split('/')[idx + 1].slice(1)]: param };
-        });
-      }
-      return match;
-    });
+    // חיפוש Route תואם ב-routes באמצעות הנתיב שחולץ.
+    const route = this.routes[path] || this.routes['/404'];
 
-    if (!foundRoute) return this.routes['/404'];
+    // יצירת אובייקט חדש מה-component של Route התואם.
+    const componentInstance = new route.component();
 
-    const [matchedRoute, { component, params }] = foundRoute;
-    return { component, params, queryParams };
-  }
+    // קריאה ל-render של רכיב זה.
+    // העברת params מה-Route או ערכי ברירת מחדל ל-render.
+    const renderedComponent = componentInstance.render(route.params || {});
 
-  loadRoute() {
-    const { component, params, queryParams } = this.getRoute();
-    const renderedComponent = new component().render(params, queryParams);
-    document.getElementById('app').innerHTML = renderedComponent;
-  }
-
-  renderComponent(component, props = {}) {
-    const renderedComponent = new component().render(props);
+    // הזרקת הרכיב המרונדור ל-DOM באלמנט בעל ה-ID 'app'.
     document.getElementById('app').innerHTML = renderedComponent;
   }
 
   navigate(path) {
+    // שימוש ב-window.history.pushState לשינוי ה-URL ללא רענון עמוד מלא.
+    // ה-URL החדש כולל '#' ואחריו נתיב ה-Route הרצוי (לדוגמה: '#/about').
     window.history.pushState({}, '', `#${path}`);
-    this.loadRoute();
+
+    // לאחר עדכון ה-URL, קריאת renderRoute לרינדור הרכיב המתאים.
+    this.renderRoute();
   }
 }
