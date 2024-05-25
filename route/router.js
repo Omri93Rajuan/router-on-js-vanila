@@ -1,8 +1,9 @@
 export default class Router {
   constructor(routes) {
     this.routes = routes;
-    window.addEventListener('popstate', this.renderRoute.bind(this));
-  }
+    window.addEventListener('popstate', () => {
+      this.renderRoute();
+    });  }
 
   renderRoute() {
     const path = location.hash.slice(1) || '/';
